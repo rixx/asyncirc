@@ -1,0 +1,363 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>asyncirc by watchtower</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <script src="javascripts/scale.fix.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1 class="header">asyncirc</h1>
+        <p class="header">asyncio-based IRC library for Python</p>
+
+        <ul>
+          <li class="download"><a class="buttons" href="https://github.com/watchtower/asyncirc/zipball/master">Download ZIP</a></li>
+          <li class="download"><a class="buttons" href="https://github.com/watchtower/asyncirc/tarball/master">Download TAR</a></li>
+          <li><a class="buttons github" href="https://github.com/watchtower/asyncirc">View On GitHub</a></li>
+        </ul>
+
+        <p class="header">This project is maintained by <a class="header name" href="https://github.com/watchtower">watchtower</a></p>
+
+
+      </header>
+      <section>
+        <h1>
+<a id="introduction-to-asyncirc" class="anchor" href="#introduction-to-asyncirc" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Introduction to asyncirc</h1>
+
+<p>Asyncirc is an IRC library based on Python's asyncio. It is designed to
+be easy to use, to provide a nice way of processing IRC events, and to
+provide a Good Enough(TM) abstraction of the IRC protocol. It is <em>not</em>
+designed to be a ready- made bot framework, or to be used without some
+knowledge of how IRC works.</p>
+
+<h2>
+<a id="installation" class="anchor" href="#installation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Installation</h2>
+
+<p>You can install asyncirc from PyPI, using whatever method you prefer.
+The package name is <code>asyncio-irc</code>.</p>
+
+<h2>
+<a id="signals" class="anchor" href="#signals" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Signals</h2>
+
+<p>Instead of using callback-style event handler registration, asyncirc
+uses <em>signals</em>. Signals are provided by the excellent Blinker library.
+It would be advisable to read that page for more information on signals,
+but the tl;dr is::</p>
+
+<pre><code># register a signal handler
+signal("signal-name").connect(signal_handler_function)
+
+# send a signal
+signal("signal-name").send(sender, some="keyword", argu="ments")
+</code></pre>
+
+<p>Asyncirc defines a lot of signals, which are covered in detail below.</p>
+
+<h1>
+<a id="usage" class="anchor" href="#usage" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Usage</h1>
+
+<p>Actually using asyncirc is pretty simple. First you need to import it::</p>
+
+<pre><code>from asyncirc import irc
+</code></pre>
+
+<p>Then you need to create a connection::</p>
+
+<pre><code>conn = irc.connect("chat.freenode.net", 6697, use_ssl=True)
+</code></pre>
+
+<p>You'll need to register with the server::</p>
+
+<pre><code>conn.register("nickname", "ident", "realname (can contain spaces)")
+</code></pre>
+
+<p>Once you're registered and connected, you'll want to join some
+channels::</p>
+
+<pre><code>@conn.on("irc-001")
+def autojoin_channels(message):
+    conn.join(["#channel1", "#channel2"])
+</code></pre>
+
+<p>If you'd rather not go through all that, you can also use the fluent
+interface::</p>
+
+<pre><code>conn = irc.connect("chat.freenode.net", 6697, use_ssl=True) \
+          .register("nick", "ident", "realname") \
+          .join(["#channel1", "#channel2"])
+</code></pre>
+
+<p>Maybe you want to connect some event handlers::</p>
+
+<pre><code>@conn.on("join")
+def on_join(message, user, channel):
+    conn.say(channel, "Hi {}! You're connecting from {}.".format(user.nick, user.host))
+</code></pre>
+
+<p>Once you're done with that, you need to run the event loop::</p>
+
+<pre><code>import asyncio
+asyncio.get_event_loop().run_forever()
+</code></pre>
+
+<p>Your shiny new IRC client should now connect and do what you told it to!
+Congratulations!</p>
+
+<h2>
+<a id="using-plugins" class="anchor" href="#using-plugins" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Using plugins</h2>
+
+<p>Plugins let you do new stuff with your connection. To use them, you
+import them before you initially make the connection::</p>
+
+<pre><code>from asyncirc import irc
+import asyncirc.plugins.addressed
+
+conn = irc.connect(...)
+...
+</code></pre>
+
+<p>Plugins usually send new signals, so you want to handle those::</p>
+
+<pre><code>@conn.on("addressed")
+def on_addressed(message, user, target, text):
+    # triggers on "bot_nickname: " or similar
+    bot.say(target, "{}: You said {} to me!".format(user.nick, text))
+</code></pre>
+
+<h1>
+<a id="fundamental-types" class="anchor" href="#fundamental-types" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Fundamental types</h1>
+
+<p>There are a few arguments to your handlers that are instances of
+specific classes. Here are those:</p>
+
+<p><code>user</code> is usually an instance of the <code>User</code> class, which has some
+important attributes:</p>
+
+<ul>
+<li>  <code>User.nick</code> contains the nickname of the user</li>
+<li>  <code>User.user</code> contains the ident of the user</li>
+<li>  <code>User.host</code> contains the host of the user</li>
+<li>  <code>User.hostmask</code> contains the full hostmask of the user</li>
+</ul>
+
+<h1>
+<a id="the-ircprotocol-object" class="anchor" href="#the-ircprotocol-object" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>The <code>IRCProtocol</code> object</h1>
+
+<p>Your connection handle (above, named <code>conn</code>) can do some useful stuff.
+Here's a list of some functions that you might find helpful when writing
+your code.</p>
+
+<ul>
+<li>  <code>IRCProtocol.say(target, message)</code> will send <code>message</code> to either a
+channel or user <code>target</code>.</li>
+<li>  <code>IRCProtocol.join(channel_or_channels)</code> will join either a single
+channel or a list of channels, depending on what you give it.</li>
+<li>  <code>IRCProtocol.part(channel_or_channels)</code> works in a similar way to
+<code>join</code>.</li>
+<li>  <code>IRCProtocol.anything(arguments)</code> will send the IRC command ANYTHING
+to the server. It's basically a catch-all for any missing method.</li>
+</ul>
+
+<h1>
+<a id="events-you-can-handle" class="anchor" href="#events-you-can-handle" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Events you can handle</h1>
+
+<p>There are a lot of things that can happen on IRC. As such, there are a
+lot of signals that asyncirc generates. Here's a list of some useful
+ones, with event handler signatures::</p>
+
+<pre><code>@conn.on("private-message")
+def on_private_message(message, user, target, text):
+    ...
+
+@conn.on("public-message")
+def on_public_message(message, user, target, text):
+    ...
+
+@conn.on("message")
+def on_any_message(message, user, target, text):
+    ...
+
+@conn.on("private-notice")
+def on_private_notice(message, user, target, text):
+    ...
+
+@conn.on("public-notice")
+def on_public_notice(message, user, target, text):
+    ...
+
+@conn.on("notice")
+def on_any_notice(message, user, target, text):
+    ...
+
+@conn.on("join")
+def on_join(message, user, channel):
+    ...
+
+@conn.on("part")
+def on_join(message, user, channel, reason):
+    # reason defaults to None if there is no reason
+    ...
+
+@conn.on("quit")
+def on_quit(message, user, reason):
+    ...
+
+@conn.on("kick")
+def on_kick(message, kicker, kickee, channel, reason):
+    # kicker is a User object
+    # kickee is just a nickname
+    ...
+
+@conn.on("nick")
+def on_nick_change(message, user, new_nick):
+    ...
+</code></pre>
+
+<p>These signals are actually sent by the <code>core</code> plugin, so that's pretty
+neat.</p>
+
+<h2>
+<a id="just-what-is-that-message-handler-argument-anyway" class="anchor" href="#just-what-is-that-message-handler-argument-anyway" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Just what is that <code>message</code> handler argument, anyway?</h2>
+
+<p><code>message</code> is a special argument. It contains the parsed commands from
+the IRC server. It has a few useful attributes:</p>
+
+<pre><code>``message.params`` has the arguments of the command
+
+``message.verb`` has the actual IRC verb
+
+``message.sender`` has the hostmask of the sender
+</code></pre>
+
+<p><code>message</code> is especially useful when you want to take care of events that
+don't already have a signal attached to them. You can hook into the
+<code>irc</code> event, or the <code>irc-verb</code> event to handle specific verbs. Handlers
+for that will take a single argument <code>message</code>.</p>
+
+<h1>
+<a id="plugins" class="anchor" href="#plugins" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Plugins</h1>
+
+<p>There are a few plugins packaged with asyncirc. These are documented
+here.</p>
+
+<h2>
+<a id="asyncircpluginsnickserv" class="anchor" href="#asyncircpluginsnickserv" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a><code>asyncirc.plugins.nickserv</code>
+</h2>
+
+<p>Sends events when authentication to NickServ succeeds or fails.
+Automatically tries to regain your nickname when it is not available
+(usually doesn't work unless you've authenticated with SASL).</p>
+
+<p>Events::</p>
+
+<pre><code>@conn.on("nickserv-auth-success")
+def auth_success(message_text):
+    # yay! you're authed to nickserv now.
+    ...
+
+@conn.on("nickserv-auth-fail")
+def auth_fail(message_text):
+    # oh no, you had the wrong password!
+    # try again or exit!
+    ...
+</code></pre>
+
+<h2>
+<a id="asyncircpluginssasl" class="anchor" href="#asyncircpluginssasl" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a><code>asyncirc.plugins.sasl</code>
+</h2>
+
+<p>Handles IRCv3 SASL authentication. After importing, there's a single
+method call you need to worry about::</p>
+
+<pre><code>asyncirc.plugins.sasl.auth(account_name, password)
+</code></pre>
+
+<p>And a single event::</p>
+
+<pre><code>@conn.on("sasl-auth-complete")
+def sasl_auth_complete(message):
+    # yay, you've authenticated with SASL.
+    ...
+</code></pre>
+
+<p>You probably don't even have to worry about the event. This plugin talks
+to the core plugin so that registration is delayed until SASL
+authentication is done.</p>
+
+<h2>
+<a id="asyncircpluginscap" class="anchor" href="#asyncircpluginscap" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a><code>asyncirc.plugins.cap</code>
+</h2>
+
+<p>Handles IRCv3 capability negotiation. There's only one method you need
+to call to request a capability once you've imported this plugin::</p>
+
+<pre><code>asyncirc.plugins.cap.request_capability("extended-join") # or whatever
+</code></pre>
+
+<p>The <code>caps-acknowledged</code> event will be fired when the server has
+acknowledged our request for capabilities. As soon as we know what set
+of capabilities the server supports, the <code>caps-known</code> event is fired.</p>
+
+<h2>
+<a id="asyncircpluginstracking" class="anchor" href="#asyncircpluginstracking" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a><code>asyncirc.plugins.tracking</code>
+</h2>
+
+<p>Full state tracking. Some methods::</p>
+
+<pre><code>user = asyncirc.plugins.tracking.get_user(hostmask_or_nick)
+chan = asyncirc.plugins.tracking.get_channel(channel_name)
+</code></pre>
+
+<p>Based on that, here's some stuff you can do::</p>
+
+<pre><code>chan.users     # a list of nicknames in the channel
+user.channels  # a list of channels that the user is in
+user.account   # the user's services account name. works best if you've
+               # requested the extended-join and account-notify capabilities
+chan.mode      # return the channel's mode string
+user.previous_nicks  # return the user's previous nicknames that we know of
+</code></pre>
+
+<p>How it actually works is really complicated. Don't even ask.</p>
+
+<h2>
+<a id="asyncircpluginsaddressed" class="anchor" href="#asyncircpluginsaddressed" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a><code>asyncirc.plugins.addressed</code>
+</h2>
+
+<p>It has an event that fires when someone mentions your bot by name in
+IRC::</p>
+
+<pre><code>@conn.on("addressed")
+def on_me_addressed(message, user, target, text):
+    # text contains the text without the "your_bot: " part
+    ...
+</code></pre>
+
+<p>You can also register command characters that can be used instead of
+your bot's nickname::</p>
+
+<pre><code>asyncirc.plugins.addressed.register_command_character(";;")
+</code></pre>
+
+<h1>
+<a id="questions-issues-just-want-to-chat" class="anchor" href="#questions-issues-just-want-to-chat" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Questions? Issues? Just want to chat?</h1>
+
+<p>I'm fwilson on freenode, if you have any questions.</p>
+      </section>
+      <footer>
+        <p><small>Hosted on <a href="https://pages.github.com">GitHub Pages</a> using the Dinky theme</small></p>
+      </footer>
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+		
+  </body>
+</html>
