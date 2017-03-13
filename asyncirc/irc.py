@@ -207,6 +207,15 @@ class IRCProtocol(asyncio.Protocol):
             self.writeln("PRIVMSG {} :{}".format(target_str, message[:400]))
             message = message[400:]
 
+    def do(self, target_str, message):
+        """
+        Send an ACTION to IRC. Must not be longer than 400 chars.
+        Carriage returns and line feeds are stripped to prevent bugs.
+        """
+        if len(message) <= 400:
+            message = message.replace("\n", "").replace("\r", "")
+            self.writeln("PRIVMSG {} :\x01ACTION {}\x01".format(target_str, message[:400]))
+
     def nick_in_use_handler(self):
         """
         Choose a nickname to use if the requested one is already in use.
